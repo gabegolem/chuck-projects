@@ -24,7 +24,7 @@ Delay d3;
 env3 => d3 => dac;
 beat * 5 => d3.max;
 beat / 2.5 => d3.delay;
-0.4 => d3.gain;
+0.6 => d3.gain;
 d3 => d3;
 
 
@@ -42,7 +42,7 @@ d2 => d1;
 
 //set default for envelope and filter
 (1::ms, beat * 4, 0, 1::ms) => env1.set;
-0.015 => osc1.gain => osc2.gain;
+0.035 => osc1.gain => osc2.gain;
 
 
 fun void filterFun(FilterBasic filter, float q, dur duration, int low, int high)

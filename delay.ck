@@ -5,8 +5,8 @@ Delay delay1;
 delay1 => dac;
 delay1 => delay1;
 
-0.025 => osc1.gain;
-0.1 => osc2.gain; 
+0.1 => osc1.gain;
+0.2 => osc2.gain; 
 
 0.3 => rev1.mix;
 
