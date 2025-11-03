@@ -16,13 +16,12 @@ Delay dLead;
 0.6::second => dur beat;
 
 //Chord collection
-36 => int offset;
+36 => int offset; //C3
 Chord chords[4];
 new Chord([0,5,7,12,16,19,24]) @=> chords[0]; //Cadd4 - C3, F3, G3, C4, E4, G4, C5
 new Chord([-3,7,9,16,21,24,28]) @=> chords[1]; //Am7 - A3, G3, A4, E4, A5, C5, E5
-new Chord([2,6,9,11,14,18,21]) @=> chords[2];  //B7 - D3, F#3, A3, B3, D4, F#4, A4
-new Chord([0]) @=> chords[3];
-
+//new Chord([2,6,9,11,14,18,21]) @=> chords[2];  //Dadd6 - D3, F#3, A3, B3, D4, F#4, A4
+//new Chord([-4,4,11,14,16,23,28]) @=> chords[3]; //E7 - G#2, E3, B3, D3, E4, B4, E5
 
 .05 => revPad.mix;
 .5 => panPad.gain;
