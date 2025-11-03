@@ -1,4 +1,4 @@
-<<< "Filters and Shreds" >>>;
+@import "chord.ck"
 
 SqrOsc oscPad1 => NRev revPad => Pan2 panPad => ADSR envPad;
 SawOsc oscPad2 => revPad => panPad => envPad;
@@ -15,12 +15,14 @@ Delay dLead;
 
 0.6::second => dur beat;
 
-//set pitch collection
+//Chord collection
 36 => int offset;
-int chords[3][7];
-[0,5,7,12,16,19,24] @=> chords[0];
-[-3,7,9,16,21,24,29] @=> chords[1];
-[2,6,9,11,14,18,21] @=> chords[2];
+Chord chords[4];
+new Chord([0,5,7,12,16,19,24]) @=> chords[0]; //Cadd4 - C3, F3, G3, C4, E4, G4, C5
+new Chord([-3,7,9,16,21,24,28]) @=> chords[1]; //Am7 - A3, G3, A4, E4, A5, C5, E5
+new Chord([2,6,9,11,14,18,21]) @=> chords[2];  //B7 - D3, F#3, A3, B3, D4, F#4, A4
+new Chord([0]) @=> chords[3];
+
 
 .05 => revPad.mix;
 .5 => panPad.gain;
@@ -73,12 +75,14 @@ fun void filterFun(FilterBasic filter, float q, dur duration, int low, int high)
 }
 
 //Creates the pad
-fun void spaceVibes(int pitches[])
+fun void spaceVibes(Chord chord)
 {
     int randomPitch;
     while(true)
     {
-        pitches[Math.random2(0,pitches.cap() -1)] => randomPitch;
+        int pitches[];
+        chord.getPitches() @=> pitches;
+        pitches[Math.random2(0, pitches.cap() -1)] => randomPitch;
         Std.mtof(randomPitch + offset) => oscPad1.freq;
         Std.mtof(randomPitch + offset + 7) => oscPad2.freq;
         Math.random2f(-.75, .75) => panPad.pan;
@@ -89,10 +93,12 @@ fun void spaceVibes(int pitches[])
 }
 
 //Creates the lead
-fun void spaceSing(int pitches[]) {
+fun void spaceSing(Chord chord) {
     int randomPitch;
     while (true)
     {
+        int pitches[];
+        chord.getPitches() @=> pitches;
         pitches[Math.random2(0,pitches.cap() -1)] => randomPitch;
         Std.mtof(randomPitch + offset + 12) => oscLead.freq;
         1 => envLead.keyOn;
