@@ -1,4 +1,8 @@
+@import "chord.ck"
+
+
 //MIDI
+
 0 => int device;
 
 MidiIn min;
@@ -24,19 +28,30 @@ Delay dPad2;
 Delay dLead;
 
 
-//Scalable Values
-RangedDur beat(0.6::second, 0.1::second, 2::second); //22
+//General Ranged Values
+RangedDur beat(0.6::second, 0.001::second, 2::second); //22
 RangedFloat modulation(1.0, 0.0, 12.0); //30 up, 40 down, 21 to change
 
-RangedFloat filterq1(.2, .05, .5);
-RangedDur filterdur1(.5::ms, .1::ms, 5::ms);
+//Pad Ranged Values
+RangedFloat oscpadgain(.035, 0, .1);
+RangedInt padmodulation(0, -12, 12);
+RangedInt padbeatmult(1, 1, 16);
+
+RangedFloat oscleadgain(.25,0,.5);
+RangedInt leadmodulation(0, -12, 12);
+RangedInt leadbeatmult(1,1,16);
+
+//Filter Ranged Values
+RangedFloat filterq1(.2, .05, 2);
+RangedDur filterdur1(.5::ms, .1::ms, 1::second);
 RangedInt filterlow1(250, 1, 3000);
 RangedInt filterhigh1(3000, 250, 5000);
 
-RangedFloat filterq2(.2, .05, .5);
-RangedDur filterdur2(.23::ms, .05::ms, 5::ms);
+RangedFloat filterq2(.2, .05, 1000);
+RangedDur filterdur2(.23::ms, .05::ms, 1::second);
 RangedInt filterlow2(100, 1, 4000);
 RangedInt filterhigh2(4000, 100, 8000);
+
 
 //Chord collection
 36 => float offset; //C3
@@ -48,7 +63,7 @@ new Chord([2,6,9,11,14,18,21]) @=> chords[2];  //Bm7/D - D3, F#3, A3, B3, D4, F#
 .05 => revPad.mix;
 .5 => panPad.gain;
 
-.25 => oscLead.gain;
+oscleadgain.value => oscLead.gain;
 .15 => revLead.mix;
 (beat.value , beat.value / 2, .5, 1::ms) => envLead.set;
 
@@ -71,7 +86,9 @@ dPad2 => dPad1;
 
 //set default for envelope and filter
 (1::ms, beat.value * 4, 0, 1::ms) => envPad.set;
-0.035 => oscPad1.gain => oscPad2.gain;
+1 => int currentFilter;
+oscpadgain.value => oscPad1.gain => oscPad2.gain;
+
 
 //Uses the passed filter, changing its q from low to high
 fun void filterFun(FilterBasic filter, float q, dur duration, int low, int high)
@@ -84,11 +101,13 @@ fun void filterFun(FilterBasic filter, float q, dur duration, int low, int high)
     {
         for(high => int i; i >= low; i--)
         {
+            <<<i>>>;
             i => filter.freq;
             duration => now;            
         }        
         for(low => int j; j <= high; j++)
         {
+            <<<j>>>;
             j => filter.freq;
             duration => now;            
         }
@@ -113,32 +132,42 @@ fun void spaceVibes(Chord chord)
     }
 }
 
+Shred brf_shred;
+Shred lpf_shred;
+Shred hpf_shred;
+
+0 => int brf_toggle;
+0 => int lpf_toggle;
+0 => int hpf_toggle;
+
+
 fun padVolume() {
     while (true) {
         
         min => now;
+      
         
         while (min.recv(msg)) {
             <<< msg.data2, msg.data3 >>>;
             
             //Pad volume
-            if (msg.data2 == 2) {
-                msg.data3 * (0.035 / 127) => oscPad1.gain => oscPad2.gain;
+            if (msg.data2 == 3) {
+                oscpadgain.setvalue(msg.data3) => oscPad1.gain => oscPad2.gain;
             }
             
             //Lead Volume
-            else if (msg.data2 == 3) {
-                msg.data3 * (.25 / 127) => oscLead.gain;
+            else if (msg.data2 == 2) {
+                oscleadgain.setvalue(msg.data3) => oscLead.gain;
             }
             
             //Beat Value
             else if (msg.data2 == 22) {
-                (msg.data3 * (beat.max / 127)+ (beat.max / 127)) => beat.value;
+                beat.setvalue(msg.data3);
             }
             
             //Modulation Value
             else if (msg.data2 == 21) {
-                (msg.data3 * (modulation.max / 127)+ (modulation.max / 127)) => modulation.value;
+                modulation.setvalue(msg.data3);
             }
             
             //Modulate Up
@@ -151,7 +180,80 @@ fun padVolume() {
                 (offset - modulation.value) => offset;
             }
             
+            else if (msg.data2 == 26) {
+                (1 => currentFilter);
+            }
             
+            else if (msg.data2 == 36) {
+                (2 => currentFilter);
+            }
+    
+            else if (msg.data2 == 17) {
+                if (currentFilter == 1) {
+                    filterq1.setvalue(msg.data3) => filterq1.value;
+                } else {
+                    filterq2.setvalue(msg.data3) => filterq2.value;
+                }
+            }
+            else if (msg.data2 == 20) {
+                padmodulation.setvalue(msg.data3) => padmodulation.value;
+
+            }
+            else if (msg.data2 == 19) {
+                leadmodulation.setvalue(msg.data3) => leadmodulation.value;
+            }
+            else if (msg.data2 == 29) {
+                for (0 => int i; i < chords.size(); i++) {
+                    chords[i].modulate(leadmodulation);
+                }
+            }
+            else if (msg.data2 == 39) {
+                for (0 => int i; i < chords.size(); i++) {
+                    chords[i].modulate(padmodulation);
+                }
+            }
+            else if (msg.data2 == 47 && msg.data3 == 127 && brf_toggle == 0) {
+                spork ~ filterFunbrf() @=> brf_shred;
+                1 => brf_toggle;
+            }
+            else if (msg.data2 == 47 && brf_toggle == 1 && msg.data3 == 127) {
+                brf_shred.exit();
+                0 => brf_toggle;
+            }
+            else if (msg.data2 == 45 && lpf_toggle == 0 && msg.data3 == 127) {
+                spork ~ filterFunlpf() @=> lpf_shred;
+                1 => lpf_toggle;
+            }
+            else if (msg.data2 == 45 && lpf_toggle == 1 && msg.data3 == 127) {
+                lpf_shred.exit();
+                0 => lpf_toggle;
+            }
+            else if (msg.data2 == 48 && hpf_toggle == 0 && msg.data3 == 127) {
+                spork ~ filterFunhpf() @=> hpf_shred;
+                    1 => hpf_toggle;
+            } 
+            else if (msg.data2 == 48 && hpf_toggle == 1 && msg.data3 == 127) {
+                    hpf_shred.exit();
+                    0 => hpf_toggle;
+            }
+            else if (msg.data2 == 46 && lpf_toggle == 0 && brf_toggle == 0 && msg.data3 == 127) {
+                spork ~ filterFunbrf() @=> brf_shred;
+                spork ~ filterFunlpf() @=> lpf_shred;
+                1 => brf_toggle;
+                1 => lpf_toggle;
+            } 
+            else if (msg.data2 == 46 && msg.data3 == 127 && lpf_toggle == 1 && brf_toggle == 1) {
+                0 => lpf_toggle;
+                0 => brf_toggle;
+                brf_shred.exit();
+                lpf_shred.exit();
+            }
+            else if (msg.data2 == 5) {
+                filterdur1.setvalue(msg.data3) => filterdur1.value;
+            }
+            else if (msg.data2 == 6) {
+                filterdur2.setvalue(msg.data3) => filterdur2.value;
+            }
         }
     }
 }
@@ -217,24 +319,40 @@ fun void filterFunlpf() {
         }
     }
 }
-spork ~ filterFunbrf();
-spork ~ filterFunlpf();
 
-int length;
-while (true) {
-    for (0 => int i; i < chords.cap(); i++) {
-        spork ~ padVolume() @=> padVol;
-        spork ~ spaceVibes(chords[i]) @=> lead;
-        spork ~ spaceSing(chords[i]) @=> pad;
-        Math.random2(10,10) => length;
-        length::second => now;
-        lead.exit();
-        pad.exit();
-        padVol.exit();
+fun void filterFunhpf() {
+    HPF filter3;
+    8 => filter3.Q;
+    envPad => filter3 => dac;
+    filter3 => dPad1 => dac.right;
+    filter3 => dPad2 => dac.left;
+    while(true)
+    {
+        for(2000 => int i; i >= 75; i--)
+        {
+            i => filter3.freq;
+            .2::ms => now;            
+        }        
+        for(75 => int j; j <= 2000; j++)
+        {
+            j => filter3.freq;
+            .2::ms => now;            
+        }
     }
 }
 
-    
-//spork ~ filterFun(hpffilter, 8 , .Lead::ms, 75, 2000);
+int length;
+spork ~ padVolume() @=> padVol;
+while (true) {
+    for (0 => int i; i < chords.cap(); i++) {
+        spork ~ spaceVibes(chords[i]) @=> lead;
+        spork ~ spaceSing(chords[i]) @=> pad;
+        Math.random2(7,15) => length;
+        length::second => now;
+        lead.exit();
+        pad.exit();     
+    }
+     
+}
 
 

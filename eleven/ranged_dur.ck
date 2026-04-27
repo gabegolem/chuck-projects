@@ -14,7 +14,11 @@ public class RangedDur {
         h => max;
     }
     
-    fun dur setvalue(dur v) {v => value; return value;}
+    fun dur setvalue(float v) {
+        v * ((max - min) / 127) + min => value;
+        <<<value>>>;
+        return value;
+    }
     fun dur setmin(dur l) {l => min; return min;}
     fun dur setmax(dur h) {h => max; return max;}
     

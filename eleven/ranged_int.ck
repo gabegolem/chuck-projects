@@ -14,7 +14,11 @@ public class RangedInt {
         h => max;
     }
     
-    fun int setvalue(int v) {v => value; return value;}
+    fun int setvalue(int v) {
+        ((v * ((max - min) $ float / 127)) + min) $ int => value;
+        <<<value>>>;
+        return value;
+    }
     fun int setmin(int l) {l => min; return min;}
     fun int setmax(int h) {h => max; return max;}
     

@@ -14,7 +14,11 @@ public class RangedFloat {
         h => max;
     }
     
-    fun float setvalue(float v) {v => value; return value;}
+    fun float setvalue(float v) {
+        (v * ((max - min) / 127)) + min => value;
+        <<<value>>>;
+        return value;
+    }
     fun float setmin(float l) {l => min; return min;}
     fun float setmax(float h) {h => max; return max;}
     
